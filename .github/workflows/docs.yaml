@@ -1,8 +1,17 @@
 name: docs
 
 on:
+  pull_request:
   push:
+    branches: [main]
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   docs:
@@ -10,8 +19,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Build docs
-        uses: TinyTapeout/tt-gds-action/docs@ihp-cmos5l
+        uses: TinyTapeout/tt-gds-action/docs@3412659307918422f3f0727917cf9b499aaca588 # ihp-cmos5l
+        with:
+          tools-ref: f6bf5c587fba4a4a8abd4c0a03234fccfbf6e61e

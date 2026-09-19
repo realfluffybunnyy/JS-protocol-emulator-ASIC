@@ -1,7 +1,7 @@
 TOP := tt_um_protocol_emulator
 GEN := src/$(TOP).v
 
-.PHONY: all gen check-gen test test-hw test-rtl test-gl fmt fmt-check harden clean
+.PHONY: all gen check-gen check-pins test test-hw test-rtl test-gl fmt fmt-check harden clean
 
 all: gen test
 
@@ -12,6 +12,9 @@ gen:
 
 check-gen: gen
 	@test -z "$$(git status --porcelain -- src)" || { git status --short -- src; echo "src/ is stale, run make gen and commit"; exit 1; }
+
+check-pins:
+	scripts/check-pins.sh
 
 test: test-hw test-rtl
 

@@ -9,12 +9,13 @@ You can also include images in this folder and reference them in the markdown. E
 
 ## How it works
 
-Explain how your project works
+Placeholder while the protocol engine is designed: `uo_out` is the 8-bit sum of `ui_in` and `uio_in`, written in Hardcaml
+(`hw/rtl/top.ml`).
 
 ## How to test
 
-Explain how to use your project
+Drive `a` on `ui_in` and `b` on `uio_in`. `uo_out` shows `a + b` modulo 256.
 
 ## External hardware
 
-List external hardware used in your project (e.g. PMOD, LED display, etc), if any
+None.

@@ -1,48 +1,94 @@
 name: test
-on: [push, workflow_dispatch]
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  test:
+  meta:
     runs-on: ubuntu-24.04
+    outputs:
+      image: ${{ steps.image.outputs.image }}
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v6
-        with:
-          submodules: recursive
+      - uses: actions/checkout@v6
 
-      - name: Install iverilog
-        shell: bash
-        run: sudo apt-get update && sudo apt-get install -y iverilog
+      - id: image
+        env:
+          TAG: ${{ hashFiles('.devcontainer/Dockerfile', '.dockerignore', 'test/requirements.txt', 'hw/protocol_emulator.opam', 'hw/protocol_emulator.opam.locked') }}
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY,,}-dev:$TAG" >> "$GITHUB_OUTPUT"
 
-      # Set Python up and install cocotb
-      - name: Setup python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
+  image:
+    needs: meta
+    strategy:
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
 
-      - name: Install Python packages
-        shell: bash
-        run: pip install -r test/requirements.txt
-
-      - name: Run tests
+      - name: Build and push dev image if missing
+        env:
+          IMAGE: ${{ needs.meta.outputs.image }}-${{ matrix.arch }}
+          TOKEN: ${{ github.token }}
         run: |
-          cd test
-          make clean
-          make
-          # make will return success even if the test fails, so check for failure in the results.xml
-          ! grep failure results.xml
+          echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          if docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "$IMAGE already built"
+            exit 0
+          fi
+          docker build -f .devcontainer/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
 
-      - name: Test Summary
+  checks:
+    needs: [meta, image]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: read
+    container:
+      image: ${{ needs.meta.outputs.image }}-${{ matrix.arch }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - run: make check-pins
+      - run: make fmt-check
+      - run: make check-gen
+      - run: make test
+
+      - name: Test summary
+        if: always()
         uses: test-summary/action@v2.4
         with:
-          paths: "test/results.xml"
-        if: always()
+          paths: test/results.xml
 
-      - name: upload waveform and test results
-        if: success() || failure()
+      - name: Upload waveform and test results
+        if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: test-results
+          name: test-results-${{ matrix.arch }}
           path: |
             test/tb.fst
             test/results.xml
-            test/output/*

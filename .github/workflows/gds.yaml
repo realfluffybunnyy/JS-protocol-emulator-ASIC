@@ -1,29 +1,64 @@
 name: gds
 
 on:
+  pull_request:
   push:
+    branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
+  # PRs that don't touch the design skip the rest; skipped jobs still satisfy required checks
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      hw: ${{ steps.diff.outputs.hw }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          hw=true
+          if [ "$EVENT" = pull_request ] && ! git diff --name-only "$BASE" HEAD \
+              | grep -qE '^(hw/|src/|test/|info\.yaml$|\.github/workflows/gds\.yaml$)'; then
+            hw=false
+          fi
+          echo "hw=$hw" >> "$GITHUB_OUTPUT"
+
   gds:
+    needs: changes
+    if: needs.changes.outputs.hw == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: checkout repo
         uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: Build GDS
-        uses: TinyTapeout/tt-gds-action@ihp-cmos5l
+        uses: TinyTapeout/tt-gds-action@3412659307918422f3f0727917cf9b499aaca588 # ihp-cmos5l
         with:
           pdk: ihp-sg13cmos5l
+          tools-ref: f6bf5c587fba4a4a8abd4c0a03234fccfbf6e61e
+          librelane-version: 3.1.0.dev3
 
   precheck:
     needs: gds
     runs-on: ubuntu-24.04
     steps:
       - name: Run Tiny Tapeout Precheck
-        uses: TinyTapeout/tt-gds-action/precheck@ihp-cmos5l
+        uses: TinyTapeout/tt-gds-action/precheck@3412659307918422f3f0727917cf9b499aaca588 # ihp-cmos5l
+        with:
+          tools-ref: f6bf5c587fba4a4a8abd4c0a03234fccfbf6e61e
 
   gl_test:
     needs: gds
@@ -31,17 +66,16 @@ jobs:
     steps:
       - name: checkout repo
         uses: actions/checkout@v6
-        with:
-          submodules: recursive
 
       - name: GL test
-        uses: TinyTapeout/tt-gds-action/gl_test@ihp-cmos5l
+        uses: TinyTapeout/tt-gds-action/gl_test@3412659307918422f3f0727917cf9b499aaca588 # ihp-cmos5l
 
   viewer:
     needs: gds
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     permissions:
       pages: write # to deploy to Pages
       id-token: write # to verify the deployment originates from an appropriate source
     steps:
-      - uses: TinyTapeout/tt-gds-action/viewer@ihp-cmos5l
+      - uses: TinyTapeout/tt-gds-action/viewer@3412659307918422f3f0727917cf9b499aaca588 # ihp-cmos5l

@@ -1,0 +1,43 @@
+name: drift
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Compare TT pins with upstream
+        id: check
+        run: |
+          set +e
+          scripts/check-drift.sh > drift.md
+          rc=$?
+          set -e
+          cat drift.md
+          case $rc in
+            0) echo "drift=false" >> "$GITHUB_OUTPUT" ;;
+            3) echo "drift=true" >> "$GITHUB_OUTPUT" ;;
+            *) exit $rc ;;
+          esac
+
+      - name: Open or update drift issue
+        if: steps.check.outputs.drift == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Upstream TT changes"
+          n=$(gh issue list --state open --search "\"$title\" in:title" --json number --jq '.[0].number')
+          if [ -n "$n" ]; then
+            gh issue edit "$n" --body-file drift.md
+          else
+            gh issue create --title "$title" --body-file drift.md
+          fi
