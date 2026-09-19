@@ -1,0 +1,6 @@
+(library
+ (name protocol_emulator_test)
+ (libraries hardcaml protocol_emulator stdio)
+ (inline_tests)
+ (preprocess
+  (pps ppx_jane)))

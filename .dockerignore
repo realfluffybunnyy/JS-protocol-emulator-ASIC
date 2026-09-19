@@ -1,2 +1,4 @@
 *
 !test/requirements.txt
+!hw/protocol_emulator.opam
+!hw/protocol_emulator.opam.locked

@@ -1,0 +1,3 @@
+(executable
+ (name generate)
+ (libraries hardcaml protocol_emulator))

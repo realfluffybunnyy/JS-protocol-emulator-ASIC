@@ -9,8 +9,10 @@ ARG IVERILOG_DEB_SHA256=888bca6b06289ea8b55368d43db38dc88932938319ab40d45a763ce5
 ARG OSS_CAD_SUITE_DATE=2026-09-18
 ARG OSS_CAD_SUITE_SHA256_X64=cbd598df0f66326213f3f2cf911906a6aa0644048397b80bf851f34df078a92d
 ARG OSS_CAD_SUITE_SHA256_ARM64=fbf5518e46b4f510427e7ded290d8f9a5a124c1d42cd110f96e5c83cf2980bd2
-ARG OCAML_VERSION=5.3.0
 ARG OPAM_REPO_COMMIT=8cdfa3296d9bc7d93273f46eb2438757e4fd5cf0
+# Must match hw/.ocamlformat
+ARG OCAMLFORMAT_VERSION=0.29.0
+ARG OCAML_LSP_VERSION=1.23.1
 ARG TARGETARCH
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -63,16 +65,18 @@ RUN python -m venv /opt/venv \
         librelane==$LIBRELANE_VERSION \
     && rm /tmp/test_requirements.txt
 
-# OCaml toolchain from a fixed opam-repository commit
+# OCaml toolchain: compiler and libraries from hw's lock file, fixed opam-repository commit
 ENV OPAMROOT=/opt/opam
 RUN mkdir -p $OPAMROOT && chown vscode:vscode $OPAMROOT
+COPY --chown=vscode hw/protocol_emulator.opam hw/protocol_emulator.opam.locked /tmp/hw/
 USER vscode
 RUN opam init -y --bare --disable-sandboxing \
         default "git+https://github.com/ocaml/opam-repository#$OPAM_REPO_COMMIT" \
-    && opam switch create -y default ocaml-base-compiler.$OCAML_VERSION \
-    && opam install -y dune hardcaml.v0.17.1 ppx_hardcaml hardcaml_waveterm ppx_jane \
-        ocaml-lsp-server ocamlformat \
-    && opam clean -a -c -s --logs
+    && opam switch create -y default --empty \
+    && opam install -y --deps-only --locked /tmp/hw \
+    && opam install -y ocaml-lsp-server.$OCAML_LSP_VERSION ocamlformat.$OCAMLFORMAT_VERSION \
+    && opam clean -a -c -s --logs \
+    && rm -rf /tmp/hw
 USER root
 
 ENV OPAM_SWITCH_PREFIX=$OPAMROOT/default

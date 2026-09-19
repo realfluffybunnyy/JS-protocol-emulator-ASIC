@@ -1,0 +1,18 @@
+(lang dune 3.17)
+
+(name protocol_emulator)
+
+(generate_opam_files true)
+
+(license Apache-2.0)
+
+(package
+ (name protocol_emulator)
+ (synopsis "Reprogrammable protocol emulator for Tiny Tapeout")
+ (depends
+  (ocaml (= 5.3.0))
+  (hardcaml (= v0.17.1))
+  ppx_hardcaml
+  ppx_jane
+  hardcaml_waveterm
+  stdio))
