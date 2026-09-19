@@ -1,7 +1,7 @@
 TOP := tt_um_protocol_emulator
 GEN := src/$(TOP).v
 
-.PHONY: all gen check-gen test test-hw test-rtl fmt fmt-check harden clean
+.PHONY: all gen check-gen test test-hw test-rtl test-gl fmt fmt-check harden clean
 
 all: gen test
 
@@ -22,6 +22,11 @@ test-rtl: gen
 	cd test && $(MAKE) clean && $(MAKE)
 	! grep -q failure test/results.xml
 
+test-gl:
+	cp tt_submission/*.v test/gate_level_netlist.v
+	cd test && $(MAKE) clean && GATES=yes $(MAKE)
+	! grep -q failure test/results.xml
+
 fmt:
 	cd hw && dune fmt
 
@@ -31,6 +36,7 @@ fmt-check:
 harden: gen
 	./tt/tt_tool.py --create-user-config --ihp
 	./tt/tt_tool.py --harden --ihp
+	./tt/tt_tool.py --create-tt-submission --ihp
 
 clean:
 	cd hw && dune clean

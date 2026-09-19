@@ -11,7 +11,7 @@
     }
   },
   "remoteUser": "vscode",
-  "postCreateCommand": "ln -sfn /opt/tt-support-tools tt",
+  "postCreateCommand": "rm -rf tt && cp -a /opt/tt-support-tools tt",
   "customizations": {
     "vscode": {
       "settings": {
