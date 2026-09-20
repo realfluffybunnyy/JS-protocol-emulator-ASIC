@@ -4,6 +4,7 @@ FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04@sha256:d94c97dd9cacf183d0
 ARG TT_SUPPORT_TOOLS_REF=f6bf5c587fba4a4a8abd4c0a03234fccfbf6e61e
 ARG TT_GDS_ACTION_REF=3412659307918422f3f0727917cf9b499aaca588
 ARG LIBRELANE_VERSION=3.1.0.dev3
+ARG KLAYOUT_ARM64_VERSION=0.30.9
 ARG IVERILOG_TAG=v13_0
 ARG IVERILOG_DEB_SHA256=888bca6b06289ea8b55368d43db38dc88932938319ab40d45a763ce5114e8505
 ARG OSS_CAD_SUITE_DATE=2026-09-18
@@ -21,7 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential pkg-config m4 unzip bubblewrap opam \
         libgmp-dev libffi-dev zlib1g-dev \
         python3 python3-dev python3-venv python-is-python3 \
-        libcairo2 librsvg2-bin pngquant \
+        libcairo2 librsvg2-bin pngquant libqhull-dev libpng-dev \
         autoconf gperf flex bison \
     && rm -rf /var/lib/apt/lists/*
 
@@ -58,12 +59,20 @@ RUN set -eux; \
     curl -fsSL "https://raw.githubusercontent.com/TinyTapeout/tt-gds-action/$TT_GDS_ACTION_REF/install_sg13cmos5l.sh" | bash
 
 COPY test/requirements.txt /tmp/test_requirements.txt
-RUN python -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir \
+# gdstk has no aarch64 wheels and builds from source (hence libqhull-dev/libpng-dev);
+# klayout's aarch64 wheels start at 0.30.2, so arm64 takes a newer one than TT CI pins.
+RUN set -eux; \
+    reqs=/tmp/tt_requirements.txt; \
+    cp /opt/tt-support-tools/requirements.txt "$reqs"; \
+    if [ "$TARGETARCH" != amd64 ]; then \
+        sed -i "s/^klayout==.*/klayout==$KLAYOUT_ARM64_VERSION/" "$reqs"; \
+    fi; \
+    python -m venv /opt/venv; \
+    /opt/venv/bin/pip install --no-cache-dir \
         -r /tmp/test_requirements.txt \
-        -r /opt/tt-support-tools/requirements.txt \
-        librelane==$LIBRELANE_VERSION \
-    && rm /tmp/test_requirements.txt
+        -r "$reqs" \
+        librelane==$LIBRELANE_VERSION; \
+    rm /tmp/test_requirements.txt "$reqs"
 
 # OCaml toolchain: compiler and libraries from hw's lock file, fixed opam-repository commit
 ENV OPAMROOT=/opt/opam
