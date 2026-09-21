@@ -4,8 +4,11 @@ All tools live in the dev container. Nothing is installed on the host.
 
 ## Setup
 
+Install Docker (on macOS, Docker Desktop for Apple Silicon) and give it at least 8 GB of memory and 60 GB of
+disk: the image is about 8 GB and the hardening tools pull another 6.6 GB inside it.
+
 Install the VS Code Dev Containers extension, open the repo, and run "Dev Containers: Reopen in Container".
-The first build takes about 15 minutes.
+The first build takes about 15 minutes, or 30 on arm64, where gdstk is compiled from source.
 
 Without VS Code:
 
